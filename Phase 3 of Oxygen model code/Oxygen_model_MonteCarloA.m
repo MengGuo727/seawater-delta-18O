@@ -16,7 +16,7 @@ fileID = fopen('out_oxygenmodel1_noFandPHI.dat','w');
 % deltaO= data(:,2);
 
 data = xlsread('delta 18O of ocean in phanerozoic.xlsx'); % oxygen of seawater from past studies
-age = data(:,1); age = 3.24-age;
+age = data(:,1); age = 3.5-age;
 deltaO= data(:,2);
 
 
@@ -77,41 +77,44 @@ Kpm_tp = 2.17e14*1e9;% the total plume flux at present-day, in unit kg/Gyr
 %%  Set up constant model parameters, values are from Wallmann (2001) Talbe. 5; and the variable value ranges
 % Set the time serie for calculating oxygen model
 dt = 0.001;
-tspan = 0.001:dt:3.24; 
+tspan = 0.001:dt:3.5; 
 tspan = tspan';
-
-% The recylcing efficiency
-% r_HT = nan(size(tspan)); % The recylcing efficiency for high T altered crust
-% r_LT = nan(size(tspan)); % The recylcing efficiency for low T altered cru
-% r_W = nan(size(tspan)); % The recylcing efficiency for sediments
 
 r_HT_min = 0.40;
 r_HT_max = 0.99;
 
-% The isotope fractionation factors
+% The isotope fractionation factors for delta 18O
 alpha_w_min  = 1.017; % isotopic fractionation factor for H2O uptake in clays, 1.02
 alpha_w_max  = 1.023; % isotopic fractionation factor for H2O uptake in clays, 1.02
 alpha_LT_min = 1.012; % isotopic fractionation factor for H2O uptake in low T altered OC, 1.015
 alpha_LT_max = 1.018; % isotopic fractionation factor for H2O uptake in low T altered OC, 1.015
 alpha_rev_min = 1.022; % isotopic fractionation factor for H2O uptake during reverse weathering, 1.025
 alpha_rev_max = 1.028; % isotopic fractionation factor for H2O uptake during reverse weathering
-alpha_HT = 1;   % isotopic fractionation factor for H2O uptake in high T altered OC
-alpha_m = 1; % isotopic fractionation factor for H2O uptake in mantle
+alpha_HT_min = 1;   % isotopic fractionation factor for H2O uptake in high T altered OC
+alpha_HT_max = 1.01;   % isotopic fractionation factor for H2O uptake in high T altered OC
+
+%The correlation factor theta under different temperature
+theta_LT_min = 0.524; % theta for low temperature alteration, 0.524-0.525
+theta_LT_max = 0.525; % theta for low temperature alteration, 0.524-0.525
+theta_MT_min = 0.525; % theta for mid temperature alteration, 0.525-0.526
+theta_MT_max = 0.526; % theta for mid temperature alteration, 0.525-0.526
+theta_HT_min = 0.527; % theta for high temperature alteration, 0.527-0.528
+theta_HT_max = 0.528; % theta for high temperature alteration, 0.527-0.528
 
 % The kinetic constants for isotope exchange processes, in unit mole 18O/Gyr
-k_w = 1.2e20;  % kinetic constant for isotopic exchange during weathering, 0.23e21
-k_LT = 1.0e20;  % kinetic constant for isotopic exchange during low T alteration OC, 0.2e21
-k_HT = 4.9e20;  % kinetic constant for isotopic exchange during high T alteration OC, was 0.3e21
-k_rev = 1.2e20;  % kinetic constant for isotopic exchange during weathering, 0.23e21
+k_w = 1.2e20;  % kinetic constant for isotopic exchange during weathering
+k_LT = 1.0e20;  % kinetic constant for isotopic exchange during low T alteration OC
+k_HT = 4.9e20;  % kinetic constant for isotopic exchange during high T alteration OC
+k_rev = 1.2e20;  % kinetic constant for isotopic exchange during weathering
 
 % The 18O model fractions
 phi_oc = 2.0126e-3;   % 18O mole fraction in fresh crust
 phi_m = 2.015e-3;   % 18O mole fraction in mantle water
 phi_si = nan(size(tspan));
-for i = 1:2740
+for i = 1:3000
     phi_si(i) = 2.017e-3;   % 18O mole fraction in weathering silicate rocks, 2.017e-3
 end
-for i = 2741:3240
+for i = 3001:3500
     phi_si(i) = 2.017e-3;   % 18O mole fraction in weathering silicate rocks, 2.032e-3;
 end
 
@@ -135,16 +138,15 @@ F_mHT_0 = 1.6e24;   % Current production of high T altered OC oxygen
 % Current 18O loss, in unit mole/Gyr
 F_pw18_0 = 2e17; % Current 18O loss during turnover of porewater
 
-% The 18O/16O ratio in standard mean ocean water
-R_smow = 0.0020052; % Hoefs, 1997
+% The 18O/16O and 170/160 ratioes in standard mean ocean water
+R_smow = 0.0020052; % +-0.43ppm, Hoefs, 1997
 
 % The fraction between reverse weathering and the total LT processes
 f_reverse = nan(size(tspan));
 f_reverse_min = 0.01;
 f_reverse_max = 0.6;
 
-%  The corresponding constants calculated using the phi defined above
-% 18O/16O ratios (constant)
+%  The corresponding constants calculated using the phi defined above 18O/16O ratios (constant)
 R_oc = phi_oc / (1 - phi_oc);
 R_si = phi_si ./ (1 - phi_si);
 R_m = phi_m / (1 - phi_m);
@@ -157,16 +159,17 @@ delta_m = (R_m / R_smow - 1) * 1000; % Fresh mantle water isotope value
 % free water mass and isotope (read from Fig.3 of Wallmann, 2001)
 M_f_ini_min= 2.51e24/18; % in unit mole
 M_f_ini_max= 3.035e24/18; % in unit mole
-delta_f18_ini_min = 2;
-delta_f18_ini_max = 4;
 
-% 18O in sedimentary rocks (read from Fig.4 of Wallmann, 2001)
-delta_w18_ini_min = 12;%15
-delta_w18_ini_max = 18;%15
+delta_f18_ini_min = -1; % can be 3.3, 0, or -12
+delta_f18_ini_max = 1; 
+
+% 18O in sedimentary rocks
+delta_w18_ini_min = 12;
+delta_w18_ini_max = 18;
 
 % 18O in low T altered OC (read from Fig.4 of Wallmann, 2001)
-delta_LT18_ini_min = 7;%8
-delta_LT18_ini_max = 11;%8
+delta_LT18_ini_min = 7;
+delta_LT18_ini_max = 11;
 
 % 18O in high T altered OC (read from Fig.4 of Wallmann, 2001)
 delta_HT18_ini_min = 3;
@@ -264,21 +267,21 @@ for l=1:itermax
         K40_BSE_tp_model,K40_CC_observe_model);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-    % Use the mass transfer rates from thermal and crustal evolution model
-    K_highT= V_model(1329:4568,1);
-    K_lowT_Krc = Krc_model(1329:4568,1);
-    K_lowT_Krw = Krw_model(1329:4568,1);
-    K_lowT_Kmo = Kmo_model(1329:4568,1);
-    K_lowT_Kmc = Kmc_model(1329:4568,1);% this is Kmc + Kmo
-    K_lowT_Kmp = Kmp_model(1329:4568,1);
+    % Use the mass transfer rates from thermal and crustal evolution model    
+    K_highT= V_model(1069:4568,1);
+    K_lowT_Krc = Krc_model(1069:4568,1);
+    K_lowT_Krw = Krw_model(1069:4568,1);
+    K_lowT_Kmo = Kmo_model(1069:4568,1);
+    K_lowT_Kmc = Kmc_model(1069:4568,1);% this is Kmc + Kmo
+    K_lowT_Kmp = Kmp_model(1069:4568,1);
     K_lowT = K_lowT_Kmc + 100*K_lowT_Krc + 100*K_lowT_Krw + K_lowT_Kmp;
     
-    f_V = K_highT./K_highT(3240);
-    f_Krc = K_lowT_Krc./K_lowT_Krc(3240);
-    f_Kmc = K_lowT_Kmc./K_lowT_Kmc(3240);
-    f_Kmp = Kmp_model./Kmp_model(3240);
+    f_V = K_highT./K_highT(3500);
+    f_Krc = K_lowT_Krc./K_lowT_Krc(3500);
+    f_Kmc = K_lowT_Kmc./K_lowT_Kmc(3500);
+    f_Kmp = Kmp_model./Kmp_model(3500);
     
-    f_LT = K_lowT./K_lowT(3240);
+    f_LT = K_lowT./K_lowT(3500);
     n_range = [1,2,3];
     n = n_range(randperm(length(n_range),1));
     f_HT = (f_V).^n;
@@ -288,30 +291,31 @@ for l=1:itermax
   
     % The recylcing efficiency for high T altered crust
     r_factor = r_HT_min + rand(1)*(r_HT_max - r_HT_min);
-    r_HT(1:3240) = r_factor;
+    r_HT(1:3500) = r_factor;
     r_LT = r_HT;% The recylcing efficiency for low T altered crust
     r_w = r_HT;% The recylcing efficiency for sediments
 
     % The isotope fractionation factors
-    alpha_w  = alpha_w_min + rand(1)*(alpha_w_max - alpha_w_min); % isotopic fractionation factor for H2O uptake in clays, 1.02
-    alpha_LT = alpha_LT_min + rand(1)*(alpha_LT_max - alpha_LT_min); % isotopic fractionation factor for H2O uptake in clays, 1.02
-    alpha_rev = alpha_rev_min + rand(1)*(alpha_rev_max - alpha_rev_min); % isotopic fractionation factor for H2O uptake in clays, 1.02
-    
+    alpha_w  = alpha_w_min + rand(1)*(alpha_w_max - alpha_w_min); % 18O isotopic fractionation factor for H2O uptake in clays, 1.02
+    alpha_LT = alpha_LT_min + rand(1)*(alpha_LT_max - alpha_LT_min); % 18O isotopic fractionation factor for H2O uptake in clays, 1.02
+    alpha_rev = alpha_rev_min + rand(1)*(alpha_rev_max - alpha_rev_min); % 18O isotopic fractionation factor for H2O uptake in clays, 1.02
+    alpha_HT = alpha_HT_min + rand(1)*(alpha_HT_max - alpha_HT_min); % isotopic fractionation factor for H2O uptake in high T altered OC
+
     % Current water fixation, in unit mol/Gyr 
     F_HT_0 = F_HT_0_min + rand(1)*(F_HT_0_max - F_HT_0_min);
     
     % reverse weathering factore
     f_reverse_factore = f_reverse_min + rand(1)*(f_reverse_max - f_reverse_min);
-    for i = 1:2740
+    for i = 1:3000
         f_reverse(i) = f_reverse_factore;%0.1
     end
-    for i = 2741:3240
+    for i = 3001:3500
         f_reverse(i) = f_reverse_factore;% 0 
     end
     
     % Set up initial conditions before running s_model function 
     % free water mass and isotope (read from Fig.3 of Wallmann, 2001)
-    M_f_ini= M_f_ini_min + rand(1)*(M_f_ini_max - M_f_ini_min); % in unit mole
+    M_f_ini = M_f_ini_min + rand(1)*(M_f_ini_max - M_f_ini_min); % in unit mole
     delta_f18_ini = delta_f18_ini_min + rand(1)*(delta_f18_ini_max - delta_f18_ini_min); 
     R_f18_ini = R_smow * (delta_f18_ini / 1000 + 1);
     M_f18_ini = M_f_ini * (R_f18_ini / (1 + R_f18_ini)); % in unit mole
@@ -322,7 +326,7 @@ for l=1:itermax
     M_w18_ini = M_w_0 * (R_w18_ini / (1 + R_w18_ini)); % in unit mole
     phi_w_ini = R_w18_ini / (1 + R_w18_ini);
     M_w_ini = M_w18_ini / phi_w_ini;
-    
+
     % 18O in low T altered OC (read from Fig.4 of Wallmann, 2001)
     delta_LT18_ini = delta_LT18_ini_min + rand(1)*(delta_LT18_ini_max - delta_LT18_ini_min);
     R_LT18_ini = R_smow * (delta_LT18_ini / 1000 + 1);
@@ -336,14 +340,20 @@ for l=1:itermax
     M_HT18_ini = M_HT_0 * (R_HT18_ini / (1 + R_HT18_ini)); % in unit mole
     phi_HT_ini = R_HT18_ini / (1 + R_HT18_ini);
     M_HT_ini = M_HT18_ini / phi_HT_ini ;
-    
+
     y_ini  = [M_f_ini, M_f18_ini, M_w_ini, M_w18_ini, ...
         M_LT_ini, M_LT18_ini, M_HT_ini, M_HT18_ini];
+    
+    % Theta under different temperature
+    %The isotope fractionation factors for delta 17O
+    theta_LT = theta_LT_min + rand(1)*(theta_LT_max - theta_LT_min); % theta for low temperature alteration, 0.524-0.525
+    theta_MT = theta_MT_min + rand(1)*(theta_MT_max - theta_MT_min); % theta for mid temperature alteration, 0.525-0.526
+    theta_HT = theta_HT_min + rand(1)*(theta_HT_max - theta_HT_min); % theta for high temperature alteration, 0.527-0.528
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Set the time serie for calculating oxygen model
     dt = 0.001;
-    tspan = 0.001:dt:3.24; 
+    tspan = 0.001:dt:3.5; 
     tspan = tspan';
     
     % Calculate oxygen circulation history
@@ -354,19 +364,18 @@ for l=1:itermax
         F_reLT18, F_reHT18, F_m18, F_mw18, F_mLT18, F_mHT18, F_sw18, ...
         F_sLT18, F_sHT18,phi_f, R_f, omega_w, omega_LT , omega_HT,...
         F_reverse, F_reverse18, F_reverse_ex, F_m] = ...
-        s_model_withCC2(y_ini, tspan, f_LT, f_HT, f_V, f_Krc, f_Kmc, ...
-        f_Kmp,F_w_0, F_LT_0, F_HT_0, r_w,...
-        r_LT, r_HT, alpha_w, alpha_LT, alpha_HT, alpha_rev, R_si, k_w, ...
+        s_model_withCC(y_ini, tspan, f_LT,f_HT,f_V, f_Krc, F_w_0, F_LT_0, F_HT_0, r_w,...
+        r_LT, r_HT, alpha_w, alpha_LT,alpha_HT, alpha_rev,R_si, k_w, ...
         R_oc, k_LT, k_HT,k_rev,F_pw18_0, phi_m, phi_si, F_mw_0, phi_oc, ...
         F_mLT_0, F_mHT_0, dt,F_m_0, f_reverse);
- 
+    
     % First, calculate misfit of present-day's 36Ar in the atmosphere
-    misfit_Mf = ((M_f(3240)*18 - M_f_observe)/1.460e+23)^2;
+    misfit_Mf = ((M_f(3500)*18 - M_f_observe)/1.460e+23)^2;
 
     if (misfit_Mf > 1)
         % adjust recycling rate to better match with M_f_observe
-        r_factor = r_factor * (M_f_observe/M_f(3240)/18);
-        r_HT(1:3240) = r_factor;
+        r_factor = r_factor * (M_f_observe/M_f(3500)/18);
+        r_HT(1:3500) = r_factor;
         r_LT = r_HT;% The recylcing efficiency for low T altered crust
         r_w = r_HT;% The recylcing efficiency for sediments
         
@@ -378,40 +387,54 @@ for l=1:itermax
             F_reLT18, F_reHT18, F_m18, F_mw18, F_mLT18, F_mHT18, F_sw18, ...
             F_sLT18, F_sHT18,phi_f, R_f, omega_w, omega_LT , omega_HT,...
             F_reverse, F_reverse18, F_reverse_ex, F_m] = ...
-            s_model_withCC2(y_ini, tspan, f_LT, f_HT, f_V, f_Krc, f_Kmc, ...
-            f_Kmp,F_w_0, F_LT_0, F_HT_0, r_w,...
-            r_LT, r_HT, alpha_w, alpha_LT, alpha_HT, alpha_rev, R_si, k_w, ...
+            s_model_withCC(y_ini, tspan, f_LT,f_HT,f_V, f_Krc, F_w_0, F_LT_0, F_HT_0, r_w,...
+            r_LT, r_HT, alpha_w, alpha_LT,alpha_HT, alpha_rev,R_si, k_w, ...
             R_oc, k_LT, k_HT,k_rev,F_pw18_0, phi_m, phi_si, F_mw_0, phi_oc, ...
             F_mLT_0, F_mHT_0, dt,F_m_0, f_reverse);
         
-        misfit_Mf = ((M_f(3240)*18 - M_f_observe)/1.460e+23 )^2;
+        misfit_Mf = ((M_f(3500)*18 - M_f_observe)/1.460e+23 )^2;
     end
-    
+
     % Calcualte the delta 18O of each reservoir
-    delta_f18_all = phi_to_delta(M_f18 , M_f, R_smow,1);
-    delta_w18_all = phi_to_delta(M_w18 , M_w, R_smow,1);
-    delta_LT18_all = phi_to_delta(M_LT18 , M_LT, R_smow,1);
-    delta_HT18_all = phi_to_delta(M_HT18 , M_HT, R_smow,1);
+    delta_f18_all = phi_to_delta(M_f18, M_f, R_smow,1);
+    delta_f18_all = delta_f18_all';
+    delta_p_f_18_allTran = 1000*log((delta_f18_all+1000)/1000);
+    
+    denom = (F_w18+F_reverse18+F_pw18- F_w_ex-F_rew18-F_sw18-F_reverse_ex)+(F_LT18 - F_LT_ex - F_reLT18 - F_sLT18)+(F_HT18 - F_HT_ex - F_reHT18 - F_sHT18);
+    perWw = (F_w18+F_reverse18+F_pw18- F_w_ex-F_rew18-F_sw18-F_reverse_ex)./denom;
+    perWLT = (F_LT18 - F_LT_ex - F_reLT18 - F_sLT18)./denom;
+    perWHT = (F_HT18 - F_HT_ex - F_reHT18 - F_sHT18)./denom;
+    Theta_f = (perWHT*theta_HT)+(perWw*theta_LT)+(perWLT*theta_MT);
+    
+    delta_f17_all = Theta_f.*delta_p_f_18_allTran;%-gamma if needed
+    delta_p_f_17=1000*log((delta_f17_all+1000)/1000);
+    DELTA_17O_all = delta_p_f_17-0.528.*delta_p_f_18_allTran;
     
     % Calculate misfits
-    misfit_deltaO_lateArchean = ((delta_f18_all(1850)-(-8))/1)^2;
-    misfit_deltaO_phanerozoic1 = ((delta_f18_all(2740)-(-3))/1)^2;
-    misfit_deltaO_phanerozoic2 = ((delta_f18_all(3240)-(0))/1)^2;
-    misfit_deltaO_phanerozoic3 = ((delta_f18_all(2500)-(-6))/1)^2;
+    misfit_deltaO_lateArchean = ((delta_f18_all(2110)-(-8))/1)^2;
+    misfit_deltaO_phanerozoic1 = ((delta_f18_all(3000)-(-3))/1)^2;
+    misfit_deltaO_phanerozoic2 = ((delta_f18_all(3500)-(0))/1)^2;
+    misfit_deltaO_phanerozoic3 = ((delta_f18_all(2760)-(-6))/1)^2;
+    
+    misfit_Delta17O_phanerozoic1 = ((DELTA_17O_all(3500)-(0))/0.05)^2;
     
     % Save all the variables and misfits
     fprintf(fileID,['%6g %6g %6g %6g %6g ' ...
         '%6g %6g %6g %6g %6g '  ...
-        '%6g %6g '  ...
+        '%6g '  ...
         '%6g %6g %6g %6g %6g '  ...
         '%6g %6g %6g %6g '  ...
-        '%6g %6g %6g %6g %6g %6g %6g\n'], ...
+        '%6g %6g %6g %6g '...
+        '%6g %6g %6g %6g '...     
+        '%6g %6g %6g %6g %6g \n'], ...
         Krw_factor_model, kappa_r_model, kappa_g_model, Rs_model, Rp_model, ...
         ts_model,  H_BSE_tp_model, H_cc_tp_model,Q_total_tp_model, Qc_tp_model,...
         d_Qc_model,...
         f_reverse_factore,r_factor, alpha_w, alpha_LT, alpha_rev,...
         F_HT_0, M_f_ini, delta_w18_ini, delta_LT18_ini,...
-        delta_HT18_ini, delta_f18_ini, misfit_Mf, misfit_deltaO_lateArchean, misfit_deltaO_phanerozoic1, misfit_deltaO_phanerozoic2, misfit_deltaO_phanerozoic3,n);
+        delta_HT18_ini, delta_f18_ini, misfit_Mf, misfit_deltaO_lateArchean, ...
+        misfit_deltaO_phanerozoic1, misfit_deltaO_phanerozoic2, misfit_deltaO_phanerozoic3,n,...
+        alpha_HT,theta_LT, theta_MT, theta_HT, misfit_Delta17O_phanerozoic1);
     
     
 end % for l=1:itermax;
