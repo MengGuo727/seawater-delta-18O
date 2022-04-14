@@ -8,16 +8,16 @@ clc;
 rng('shuffle');% to avoid have same random results everytime
 
 %% Read file "out_phase2.dat"
-success_oxygen = load('out_oxygenmodel3_scenario1.dat');
+% success_oxygen = load('out_oxygenmodel21_noFandPHI.dat');
+success_oxygen = load('out_oxygenmodel_-12.dat');
 % the variables in 'out_phase3a.dat' are in following order:
 % 1.Krw_factor, 2.kappa_r, 3.kappa_g, 4.Rs, 5.Rp, ...
-% 6.ts, 7.H_BSE_tp, 8.H_cc_tp,...
-% 9.Q_total_tp, 10.Qc_tp, 11.d_Qc, ...
+% 6.ts, 7.H_BSE_tp, 8.H_cc_tp, 9.Q_total_tp, 10.Qc_tp, 11.d_Qc, ...
 % 12.f_reverse_factore, 13.r_factor, 14.alpha_w, 15.alpha_LT, 16.alpha_rev,...
 % 17.F_HT_0, 18.M_f_ini, 19.delta_w18_ini, 20.delta_LT18_ini, 21.delta_HT18_ini,...
 % 22.delta_f18_ini, 23,misfit_Mf, 24.misfit_deltaO_lateArchean,...
 % 25.misfit_deltaO_phanerozoic1, 26.misfit_deltaO_phanerozoic2, 27.misfit_deltaO_phanerozoic3
-% 28.n
+% 28.n, 29.alpha_HT, 30.theta_LT, 31.theta_MT, 32.theta_HT, 33.misfit_Delta17O_phanerozoic1
 
 %% Set up constants to run the model
 % constants for performing crustal growth model
@@ -45,29 +45,27 @@ rhom = 3300; % the average density of mantle, in unit kg/m3
 dTdP = 1.54e-8; % dT/dp, in unit K/Pa (Korenaga et al., 20020)
 type = 2;% set the type to be constant Q scaling law
 
-% set the constants to operate argon degassing model
+% set the constants to operate oxygen delta18O model
 Fpm_tp = 2.17e14;% the total plume flux at present-day, in unit kg/yr
 Kmo_tp = 6.7e23;% present-day mantle processing rate to generate oceanic crust, in unit kg/Ga (Korenaga,2006)
 Kpm_tp = 2.17e14*1e9;% the total plume flux at present-day, in unit kg/Gyr
 
-% set constants to run oxygen model
-alpha_HT = 1;   % isotopic fractionation factor for H2O uptake in high T altered OC
-alpha_m = 1; % isotopic fractionation factor for H2O uptake in mantle
 % The kinetic constants for isotope exchange processes, in unit mole 18O/Gyr
 k_w = 1.2e20;  % kinetic constant for isotopic exchange during weathering, 0.23e21
 k_LT = 1.0e20;  % kinetic constant for isotopic exchange during low T alteration OC, 0.2e21
 k_HT = 4.9e20;  % kinetic constant for isotopic exchange during high T alteration OC, was 0.3e21
 k_rev = 1.2e20;  % kinetic constant for isotopic exchange during weathering, 0.23e21
+
 % The 18O model fractions
-for i = 1:2740
+phi_oc = 2.0126e-3;   % 18O mole fraction in fresh crust
+phi_m = 2.015e-3;   % 18O mole fraction in mantle water
+for i = 1:3000
     phi_si(i) = 2.017e-3;   % 18O mole fraction in weathering silicate rocks, 2.017e-3
 end
-for i = 2741:3240
+for i = 3001:3500
     phi_si(i) = 2.017e-3;   % 18O mole fraction in weathering silicate rocks, 2.032e-3;
 end
 
-phi_oc = 2.0126e-3;   % 18O mole fraction in fresh crust
-phi_m = 2.015e-3;   % 18O mole fraction in mantle water
 % The masses of oxygen in different reservoirs, in unit mole
 M_w_0 = 7e22;   % Mass of oxygen in sedimentary rocks
 M_LT_0 = 1e22;   % Mass of oxygen in low T altered OC
@@ -84,30 +82,40 @@ F_mHT_0 = 1.6e24;   % Current production of high T altered OC oxygen
 F_pw18_0 = 2e17; % Current 18O loss during turnover of porewater
 % The 18O/16O ratio in standard mean ocean water
 R_smow = 0.0020052; % Hoefs, 1997
-%  The corresponding constants calculated using the phi defined above
-% 18O/16O ratios (constant)
+
+%  The corresponding constants calculated using the phi defined above 18O/16O ratios (constant)
 R_oc = phi_oc / (1 - phi_oc);
 R_si = phi_si ./ (1 - phi_si);
 R_m = phi_m / (1 - phi_m);
 delta_oc = (R_oc / R_smow - 1) * 1000; % Fresh crust isotope value
 delta_si = (R_si / R_smow - 1) * 1000; % Fresh silicate isotope value
 delta_m = (R_m / R_smow - 1) * 1000; % Fresh mantle water isotope value
+
 % observed mass of ocean at present-day
 M_f_observe = 1.46e24;
 
 %% set up empty matrixes to store results
-nt1 = 3240;
+nt1 = 3500;
 nt2 = 4568;
 [size_oxygen, nparameter ]= size(success_oxygen);
 M_f_success= nan(nt1,size_oxygen);
 M_f_g_success= nan(nt1,size_oxygen);
 delta_f18_all_success = nan(nt1,size_oxygen);
+DELTA_17O_all_success = nan(nt1,size_oxygen);
 delta_w18_all_success = nan(nt1,size_oxygen);
 delta_LT18_all_success = nan(nt1,size_oxygen);
 delta_HT18_all_success = nan(nt1,size_oxygen);
 f_LT_success = nan(nt1,size_oxygen);
 f_HT_success = nan(nt1,size_oxygen);
 f_Krc_success = nan(nt1,size_oxygen);
+theta_LT_success = nan(nt1,size_oxygen);
+theta_MT_success = nan(nt1,size_oxygen);
+theta_HT_success = nan(nt1,size_oxygen);
+alpha_w_success = nan(nt1,size_oxygen);
+alpha_LT_success = nan(nt1,size_oxygen);
+alpha_rev_success = nan(nt1,size_oxygen);
+alpha_HT_success = nan(nt1,size_oxygen);
+Theta_f_success = nan(nt1,size_oxygen);
 
 Kmc_c_success = nan(nt2,size_oxygen);
 Mc_success = nan(nt2,size_oxygen);
@@ -155,7 +163,13 @@ for l=1:size_oxygen
     misfit_deltaO_lateArchean = success_oxygen(l,24);
     misfit_deltaO_phanerozoic = success_oxygen(l,25);
     misfit_deltaO_phanerozoic2  = success_oxygen(l,26);
+    misfit_deltaO_phanerozoic3  = success_oxygen(l,27);
     n = success_oxygen(l,28);
+    alpha_HT =  success_oxygen(l,29);
+    theta_LT = success_oxygen(l,30);
+    theta_MT = success_oxygen(l,31);
+    theta_HT = success_oxygen(l,32);
+    misfit_Delta17O_phanerozoic1 = success_oxygen(l,33);
 
     % calculate the dependent variables
     Krw_s_model = Rs_model * Krw_factor_model;% initial Krw_factor
@@ -210,20 +224,20 @@ for l=1:size_oxygen
         K40_BSE_tp_model,K40_CC_observe_model);
     
     % Use the mass transfer rates from thermal and crustal evolution model
-    K_highT= V_model(1329:4568,1); % ask V or Q
-    K_lowT_Krc = Krc_model(1329:4568,1);
-    K_lowT_Krw = Krw_model(1329:4568,1);
-    K_lowT_Kmo = Kmo_model(1329:4568,1);
-    K_lowT_Kmc = Kmc_model(1329:4568,1);% this is Kmc + Kmo
-    K_lowT_Kmp = Kmp_model(1329:4568,1);
+    K_highT= V_model(1069:4568,1); % ask V or Q
+    K_lowT_Krc = Krc_model(1069:4568,1);
+    K_lowT_Krw = Krw_model(1069:4568,1);
+    K_lowT_Kmo = Kmo_model(1069:4568,1);
+    K_lowT_Kmc = Kmc_model(1069:4568,1);% this is Kmc + Kmo
+    K_lowT_Kmp = Kmp_model(1069:4568,1);
     K_lowT = K_lowT_Kmc + 100*K_lowT_Krc + 100*K_lowT_Krw + K_lowT_Kmp;
     
-    f_V = K_highT./K_highT(3240);
-    f_Krc = K_lowT_Krc./K_lowT_Krc(3240);
-    f_Kmc = K_lowT_Kmc./K_lowT_Kmc(3240);
-    f_Kmp = Kmp_model./Kmp_model(3240);
+    f_V = K_highT./K_highT(3500);
+    f_Krc = K_lowT_Krc./K_lowT_Krc(3500);
+    f_Kmc = K_lowT_Kmc./K_lowT_Kmc(3500);
+    f_Kmp = Kmp_model./Kmp_model(3500);
     
-    f_LT = K_lowT./K_lowT(3240);
+    f_LT = K_lowT./K_lowT(3500);
     f_HT = (f_V).^n;
     
     % Calculate the corresponding formation age and surface age distribution...
@@ -231,17 +245,16 @@ for l=1:size_oxygen
     [F_model,S_model,m_tp,m,Krw_model] = ...
         Formation_surface_age_fun(t,Mud_model,Mdd_model,Mc_model,Krw_model_first);
     
-    
     % recycling rates
-    r_HT(1:3240) = r_factor;
+    r_HT(1:3500) = r_factor;
     r_LT = r_HT;% The recylcing efficiency for low T altered crust
     r_w = r_HT;% The recylcing efficiency for sediments
     
     % reverse weathering factore
-    for i = 1:2740
+    for i = 1:3000
         f_reverse(i) = f_reverse_factore;
     end
-    for i = 2741:3240
+    for i = 3001:3500
         f_reverse(i) = f_reverse_factore;% 0
     end
     
@@ -267,16 +280,15 @@ for l=1:size_oxygen
     M_HT18_ini = M_HT_0 * (R_HT18_ini / (1 + R_HT18_ini)); % in unit mole
     phi_HT_ini = R_HT18_ini / (1 + R_HT18_ini);
     M_HT_ini = M_HT18_ini / phi_HT_ini ;
-    
+
     y_ini  = [M_f_ini, M_f18_ini, M_w_ini, M_w18_ini, ...
         M_LT_ini, M_LT18_ini, M_HT_ini, M_HT18_ini];
     
     % Set the time serie for calculating oxygen model
     dt = 0.001;
-    tspan = 0.001:dt:3.24; % the time serie to reproduce Wallmann 2001
+    tspan = 0.001:dt:3.5; % the time serie to reproduce Wallmann 2001
     tspan = tspan';
     
-    % Calculate oxygen circulation history
     [M_f, M_f18, M_w, M_w18, M_LT, M_LT18, M_HT, M_HT18,...
         F_w, F_LT, F_HT, F_rew, F_reLT, F_reHT, ...
         F_w18, F_LT18, F_HT18, F_w_ex, ...
@@ -284,28 +296,42 @@ for l=1:size_oxygen
         F_reLT18, F_reHT18, F_m18, F_mw18, F_mLT18, F_mHT18, F_sw18, ...
         F_sLT18, F_sHT18,phi_f, R_f, omega_w, omega_LT , omega_HT,...
         F_reverse, F_reverse18, F_reverse_ex, F_m] = ...
-        s_model_withCC2(y_ini, tspan, f_LT, f_HT, f_V, f_Krc, f_Kmc, ...
-        f_Kmp,F_w_0, F_LT_0, F_HT_0, r_w,...
-        r_LT, r_HT, alpha_w, alpha_LT, alpha_HT, alpha_rev, R_si, k_w, ...
+        s_model_withCC(y_ini, tspan, f_LT,f_HT,f_V, f_Krc, F_w_0, F_LT_0, F_HT_0, r_w,...
+        r_LT, r_HT, alpha_w, alpha_LT,alpha_HT, alpha_rev,R_si, k_w, ...
         R_oc, k_LT, k_HT,k_rev,F_pw18_0, phi_m, phi_si, F_mw_0, phi_oc, ...
         F_mLT_0, F_mHT_0, dt,F_m_0, f_reverse);
-
+    
     % Calcualte the delta 18O of each reservoir
-    delta_f18_all = phi_to_delta(M_f18 , M_f, R_smow,1);
-    delta_w18_all = phi_to_delta(M_w18 , M_w, R_smow,1);
-    delta_LT18_all = phi_to_delta(M_LT18 , M_LT, R_smow,1);
-    delta_HT18_all = phi_to_delta(M_HT18 , M_HT, R_smow,1);
-        
+    delta_f18_all = phi_to_delta(M_f18, M_f, R_smow,1);
+    delta_f18_all = delta_f18_all';
+    delta_p_f_18_allTran = 1000*log((delta_f18_all+1000)/1000);
+    
+    denom = (F_w18+F_reverse18+F_pw18- F_w_ex-F_rew18-F_sw18-F_reverse_ex)+(F_LT18 - F_LT_ex - F_reLT18 - F_sLT18)+(F_HT18 - F_HT_ex - F_reHT18 - F_sHT18);
+    perWw = (F_w18+F_reverse18+F_pw18- F_w_ex-F_rew18-F_sw18-F_reverse_ex)./denom;
+    perWLT = (F_LT18 - F_LT_ex - F_reLT18 - F_sLT18)./denom;
+    perWHT = (F_HT18 - F_HT_ex - F_reHT18 - F_sHT18)./denom;
+    Theta_f = (perWHT*theta_HT)+(perWw*theta_LT)+(perWLT*theta_MT);
+    
+    delta_f17_all = Theta_f.*delta_p_f_18_allTran;%-gamma if needed
+    delta_p_f_17=1000*log((delta_f17_all+1000)/1000);
+    DELTA_17O_all = delta_p_f_17-0.528.*delta_p_f_18_allTran;
+         
     % save the results
     M_f_success(:,l) = M_f;
     M_f_g_success(:,l) = M_f * 18;
     delta_f18_all_success(:,l) = delta_f18_all;
-    delta_w18_all_success(:,l) = delta_w18_all;
-    delta_LT18_all_success(:,l) = delta_LT18_all;
-    delta_HT18_all_success(:,l) = delta_HT18_all;
+    DELTA_17O_all_success(:,l) = DELTA_17O_all;
     f_LT_success(:,l) = f_LT;
     f_HT_success(:,l) = f_HT;
     f_Krc_success(:,l) = f_Krc;
+    theta_LT_success(:,l) = theta_LT;
+    theta_MT_success(:,l) = theta_MT;
+    theta_HT_success(:,l) = theta_HT;
+    alpha_w_success(:,l) = alpha_w;
+    alpha_LT_success(:,l) = alpha_LT;
+    alpha_rev_success(:,l) = alpha_rev;
+    alpha_HT_success(:,l) = alpha_HT;
+    Theta_f_success(:,l) = Theta_f;
     
     Kmc_c_success(:,l) = Kmc_c_model;
     Mc_success(:,l) = Mc_model;
@@ -332,6 +358,7 @@ dt = 0.001;% length of each timestep
 t = 0:dt:tmax;
 nt = length(t);% number of timesteps
 t = t';
+
 [Mc_5,Mc_25,Mc_50,Mc_75,Mc_95] = calculate_percentile_fun(Mc_success,nt,t,size_oxygen);
 [Kmc_c_5,Kmc_c_25,Kmc_c_50,Kmc_c_75,Kmc_c_95] = calculate_percentile_fun(Kmc_c_success,nt,t,size_oxygen);
 [Krc_5,Krc_25,Krc_50,Krc_75,Krc_95] = calculate_percentile_fun(Krc_success,nt,t,size_oxygen);
@@ -434,13 +461,12 @@ myfig = figure(2);
 myfig.Renderer = 'Painters';
 
 %% plot the selected f_LT,f_HT, and recycling rates
-nt = 3240;
+nt = 3500;
 [f_LT_5,f_LT_25,f_LT_50,f_LT_75,f_LT_95] = calculate_percentile_fun(f_LT_success,nt,t,size_oxygen);
 [f_HT_5,f_HT_25,f_HT_50,f_HT_75,f_HT_95] = calculate_percentile_fun(f_HT_success,nt,t,size_oxygen);
 % [f_LT_Krc_5,f_LT_Krc_25,f_LT_Krc_50,f_LT_Krc_75,f_LT_Krc_95] = calculate_percentile_fun(f_LT_Krc_success,nt,t,size_oxygen);
 
 figure(3);
-subplot(2,2,1);
 plot(tspan,f_LT_25,'k',tspan,f_LT_75,'k',tspan,f_LT_5,'k',tspan,f_LT_95,'k');hold on;
 fill([tspan' fliplr(tspan')],[f_LT_25 fliplr(f_LT_75)],[0.4660 0.540 0.1880]);
 fill([tspan' fliplr(tspan')],[f_LT_5 fliplr(f_LT_25)],'g');
@@ -450,7 +476,7 @@ fill([tspan' fliplr(tspan')],[f_HT_25 fliplr(f_HT_75)],[0.3 0.5 0.3]);
 fill([tspan' fliplr(tspan')],[f_HT_5 fliplr(f_HT_25)],'y');
 fill([tspan' fliplr(tspan')],[f_HT_75 fliplr(f_HT_95)],'y'); 
 
-xlabel('Time (Gyr)','Fontsize',16); xlim([0,3.24]);
+xlabel('Time (Gyr)','Fontsize',16); xlim([0,3.5]);
 ylabel('f_{LT} and f_{HT}','Fontsize',16); 
 legend('f_{LT} (Low T alteration rate)','f_{HT} (High T alteration rate)','Location','Northeast','Fontsize',14);
 set(gca,'FontSize',16); box on;
@@ -460,7 +486,7 @@ myfig.Renderer = 'Painters';
 
 %% load in the data for delta 18O 
 data = xlsread('delta 18O of ocean in phanerozoic.xlsx'); % oxygen of seawater from past studies
-age = data(:,1); age = 3.24-age;
+age = data(:,1); age = 3.5-age;
 deltaO= data(:,2);
 
 %% Plot the necessary figures
@@ -477,22 +503,12 @@ fill([tspan' fliplr(tspan')],[M_f_g_5 fliplr(M_f_g_25)],'g');
 fill([tspan' fliplr(tspan')],[M_f_g_75 fliplr(M_f_g_95)],'g'); 
 scatter(tspan(nt), M_f_observe,90,'MarkerEdgeColor',[0.9290 0.6940 0.1250],'MarkerFaceColor',[0.9100 0.4100 0.1700],'LineWidth',1.5);
 hold off;
-xlabel('Time (Gyr)','Fontsize',16);xlim([0,3.24]);
+xlabel('Time (Gyr)','Fontsize',16);xlim([0,3.5]);
 ylabel('Mass of free water (g)','Fontsize',16);
 set(gca,'FontSize',16); box on;
 
 myfig = figure(4);
 myfig.Renderer = 'Painters';
-
-%% 
-[delta_f18_all_5,delta_f18_all_25,delta_f18_all_50,delta_f18_all_75,delta_f18_all_95] = ...
-    calculate_percentile_fun(delta_f18_all_success,nt,t,size_oxygen);
-[delta_HT18_all_5,delta_HT18_all_25,delta_HT18_all_50,delta_HT18_all_75,delta_HT18_all_95] = ...
-    calculate_percentile_fun(delta_HT18_all_success,nt,t,size_oxygen);
-[delta_LT18_all_5,delta_LT18_all_25,delta_LT18_all_50,delta_LT18_all_75,delta_LT18_all_95] = ...
-    calculate_percentile_fun(delta_LT18_all_success,nt,t,size_oxygen);
-[delta_w18_all_5,delta_w18_all_25,delta_w18_all_50,delta_w18_all_75,delta_w18_all_95] = ...
-    calculate_percentile_fun(delta_w18_all_success,nt,t,size_oxygen);
 
 %% Dealta 18O data from previous studies
 % Tartese et al., 2017 data
@@ -510,9 +526,23 @@ deltaO_4 = deltaO(40:43);
 % Galili et al., 2019 data
 age_5 = age(1:31);
 deltaO_5 = deltaO(1:31);
-%%
+% delta18O of Shale,Chert, and Carb
+data = xlsread('ShaleChertCarb.xlsx'); 
+age_calcite = data(:,11); age_calcite = 3.5-age_calcite;
+deltaO_calcite= data(:,12);
+
+age_shale = data(:,1); age_shale = 3.5-age_shale;
+deltaO_shale= data(:,2);
+
+age_chert = data(:,6); age_chert = 3.5-age_chert;
+deltaO_chert= data(:,7);
+
+[delta_f18_all_5,delta_f18_all_25,delta_f18_all_50,delta_f18_all_75,delta_f18_all_95] = ...
+    calculate_percentile_fun(delta_f18_all_success,nt,t,size_oxygen);
+
 figure(5);
 subplot(2,1,1);
+scatter(age_calcite,deltaO_calcite,20,'MarkerEdgeColor','c');hold on;
 % plot(tspan,delta_f18_all_50,'k',tspan,delta_f18_all_5,'k-.',tspan,delta_f18_all_95,'k-.','LineWidth',2);hold on;
 plot(tspan,delta_f18_all_25,'k',tspan,delta_f18_all_75,'k',tspan,delta_f18_all_5,'k',tspan,delta_f18_all_95,'k');hold on;
 fill([tspan' fliplr(tspan')],[delta_f18_all_25 fliplr(delta_f18_all_75)],[0.4660 0.540 0.1880]);
@@ -525,33 +555,65 @@ scatter(age_4,deltaO_4,90,'v','MarkerEdgeColor','k','MarkerFaceColor','c','LineW
 scatter(age_5,deltaO_5,90,'MarkerEdgeColor',[0.9290 0.6940 0.1250],'MarkerFaceColor',[0.9100 0.4100 0.1700],'LineWidth',1.5);% Galili et al., 2019 data
 scatter(0,3,90,'MarkerEdgeColor',[0.9290 0.6940 0.1250],'MarkerFaceColor',[0.9100 0.4100 0.1700],'LineWidth',1.5);% Johnson and Wing, 2020 data
 errorbar(0,3,1);
-xlabel('Time (Gyr)','Fontsize',16);xlim([0,3.24]);
+xlabel('Time (Gyr)','Fontsize',16);xlim([0,3.5]);
 ylabel('\delta^{18}O of free water','Fontsize',16);
 set(gca,'FontSize',16); box on;
 
 subplot(2,1,2);
-plot(tspan,delta_HT18_all_25,'k',tspan,delta_HT18_all_75,'k',tspan,delta_HT18_all_5,'k',tspan,delta_HT18_all_95,'k');hold on;
-fill([tspan' fliplr(tspan')],[delta_HT18_all_25 fliplr(delta_HT18_all_75)],[0.7 0.7 0.7]);
-fill([tspan' fliplr(tspan')],[delta_HT18_all_5 fliplr(delta_HT18_all_25)],'y');
-fill([tspan' fliplr(tspan')],[delta_HT18_all_75 fliplr(delta_HT18_all_95)],'y'); 
+scatter(age_chert,deltaO_chert,20,'MarkerEdgeColor',[0 0.447 0.741]); hold on;
+scatter(age_shale,deltaO_shale,20,'MarkerEdgeColor',[0.635 0.078 0.184])
+xlabel('Time (Gyr)','Fontsize',16);xlim([0,3.5]);
+ylabel('\delta^{18}O of chert and shale','Fontsize',16);
+set(gca,'FontSize',16); box on;
+legend('Chert','Shale','Location','Northwest')
+myfig = figure(5);
+myfig.Renderer = 'Painters';
 
-plot(tspan,delta_LT18_all_25,'k',tspan,delta_LT18_all_75,'k',tspan,delta_LT18_all_5,'k',tspan,delta_LT18_all_95,'k');hold on;
-fill([tspan' fliplr(tspan')],[delta_LT18_all_25 fliplr(delta_LT18_all_75)],[0.4660 0.540 0.1880]);
-fill([tspan' fliplr(tspan')],[delta_LT18_all_5 fliplr(delta_LT18_all_25)],'g');
-fill([tspan' fliplr(tspan')],[delta_LT18_all_75 fliplr(delta_LT18_all_95)],'g'); 
+%% Plot D17O evoles with time
+[DELTA_17O_all_5,DELTA_17O_all_25,DELTA_17O_all_50,DELTA_17O_all_75,DELTA_17O_all_95] = ...
+    calculate_percentile_fun(DELTA_17O_all_success,nt,t,size_oxygen);
 
-plot(tspan,delta_w18_all_25,'k',tspan,delta_w18_all_75,'k',tspan,delta_w18_all_5,'k',tspan,delta_w18_all_95,'k');hold on;
-fill([tspan' fliplr(tspan')],[delta_w18_all_25 fliplr(delta_w18_all_75)],[0.6 0.6 0.6]);
-fill([tspan' fliplr(tspan')],[delta_w18_all_5 fliplr(delta_w18_all_25)],'c');
-fill([tspan' fliplr(tspan')],[delta_w18_all_75 fliplr(delta_w18_all_95)],'c'); 
+data = xlsread('D17O data.xlsx'); % oxygen of seawater from past studies
+age = data(:,1); age = 3.5 - age;
+DELTA17O_chert = data(:,3);
 
-legend('Deep crust','Upper crust','Clay','Location','Northwest');
-hold off;
-xlabel('Time (Gyr)','Fontsize',16);xlim([0,3.24]);
-ylabel('\delta^{18}O of oceanic crust','Fontsize',16);
+figure(6);
+subplot(2,1,1);hold off;
+plot(tspan,DELTA_17O_all_25,'k',tspan,DELTA_17O_all_75,'k',tspan,DELTA_17O_all_5,'k',tspan,DELTA_17O_all_95,'k');hold on;
+fill([tspan(2:3500)' fliplr(tspan(2:3500)')],[DELTA_17O_all_25(2:3500) fliplr(DELTA_17O_all_75(2:3500))],[0.4660 0.540 0.1880]);
+fill([tspan(2:3500)' fliplr(tspan(2:3500)')],[DELTA_17O_all_5(2:3500) fliplr(DELTA_17O_all_25(2:3500))],'g');
+fill([tspan(2:3500)' fliplr(tspan(2:3500)')],[DELTA_17O_all_75(2:3500) fliplr(DELTA_17O_all_95(2:3500))],'g'); 
+% plot(tspan,DELTA_17O_all_success,'k');hold on;
+ax = gca; % axes handle
+ax.YAxis.Exponent = 0;
+ylabel('\Delta^{17}O of seawater','Fontsize',16);
 set(gca,'FontSize',16); box on;
 
-myfig = figure(5);
+subplot(2,1,2);
+scatter(age,DELTA17O_chert,90,'d','MarkerEdgeColor','y','MarkerFaceColor','b','LineWidth',1.5);
+ylabel('\Delta^{17}O of seawater','Fontsize',16);
+set(gca,'FontSize',16); box on;
+
+myfig = figure(6);
+myfig.Renderer = 'Painters';
+
+%% Theta
+[Theta_all_5,Theta_all_25,Theta_all_50,Theta_all_75,Theta_all_95] = ...
+    calculate_percentile_fun(Theta_f_success,nt,t,size_oxygen);
+
+figure(7);
+subplot(2,1,1);hold off;
+plot(tspan,Theta_all_25,'k',tspan,Theta_all_75,'k',tspan,Theta_all_5,'k',tspan,Theta_all_95,'k');hold on;
+fill([tspan(2:3500)' fliplr(tspan(2:3500)')],[Theta_all_25(2:3500) fliplr(Theta_all_75(2:3500))],[0.4660 0.540 0.1880]);
+fill([tspan(2:3500)' fliplr(tspan(2:3500)')],[Theta_all_5(2:3500) fliplr(Theta_all_25(2:3500))],'g');
+fill([tspan(2:3500)' fliplr(tspan(2:3500)')],[Theta_all_75(2:3500) fliplr(Theta_all_95(2:3500))],'g');
+% plot(tspan,Theta_f_success,'k');hold on;
+ax = gca; % axes handle
+ax.YAxis.Exponent = 0;
+ylabel('Theta','Fontsize',16);xlabel('Time (Ga)','Fontsize',16)
+set(gca,'FontSize',16); box on;xlim([0,3.24]);ylim([0.524,0.527])
+
+myfig = figure(7);
 myfig.Renderer = 'Painters';
 
 %% plot formation age and surface age distributions
@@ -575,7 +637,7 @@ F_Jun = data_formationage(:,2);
 data_zircon_surf = load('korenaga18a_T_U_Pb.dat');
 S_Jun = data_zircon_surf(:,2);
 
-figure(6);
+figure(8);
 subplot(2,1,1); hold off;
 plot(t,F_25,'Color',[0.4660 0.6740 0.1880],'LineWidth',0.5);hold on;
 plot(t,F_75,'Color',[0.4660 0.6740 0.1880],'LineWidth',0.5);
@@ -611,5 +673,5 @@ yticklabels({'0','','0.2','','0.4','','0.6','','0.8','','1.0'}); yticks(0:0.1:1)
 box on;
 set(gca,'FontSize',14); box on;
 
-myfig = figure(6);
+myfig = figure(8);
 myfig.Renderer = 'Painters';
